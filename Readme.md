@@ -123,7 +123,7 @@ dt %>%
   ggtitle("EPSA 2024 - Number of papers/section\n")
 ```
 
-![](parse_EPSA_2024_files/figure-gfm/unnamed-chunk-4-1.png)<!-- -->
+![](Readme_files/figure-gfm/unnamed-chunk-4-1.png)<!-- -->
 
 ## Number of panels/section
 
@@ -140,7 +140,7 @@ dt %>%
   ggtitle("EPSA 2024 - Number of panels/section\n")
 ```
 
-![](parse_EPSA_2024_files/figure-gfm/unnamed-chunk-5-1.png)<!-- -->
+![](Readme_files/figure-gfm/unnamed-chunk-5-1.png)<!-- -->
 
 ``` r
 dt %>%
@@ -166,7 +166,7 @@ dt %>%
   scale_x_datetime(date_breaks = "hour", labels = ~str_extract(as.character(.x), "\\d{2}:\\d{2}"))
 ```
 
-![](parse_EPSA_2024_files/figure-gfm/unnamed-chunk-6-1.png)<!-- -->
+![](Readme_files/figure-gfm/unnamed-chunk-6-1.png)<!-- -->
 
 ``` r
   
