@@ -159,7 +159,7 @@ dt %>%
   arrange(section) %>%
   mutate(track = row_number(), .by = c(p_day, p_time)) %>%
   mutate(
-    p_day = fct_relevel(p_day, "Thursday", "Friday", "Saturday"),
+    p_day = fct_relevel(p_day, "Thursday"),
     start = lubridate::dmy_hm(glue::glue("03-07-2024 {p_time}")), 
     end = start + 60*60*2, 
     mid = start + (start - end)/2, 
