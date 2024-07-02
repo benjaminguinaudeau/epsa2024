@@ -1,0 +1,175 @@
+
+<!-- README.md is generated from README.Rmd. Please edit that file -->
+
+# EPSA 2024
+
+This is a parsed version of the program of the EPSA 2024.
+
+## Parsing
+
+``` r
+
+
+subset_and_remove <- function(x, pattern){
+  x %>% 
+    str_subset(pattern) %>%
+    str_remove(paste0(pattern, "\\s+"))
+}
+
+parse_panel <- function(panel_str){
+  panel_str <- panel_str %>%
+    str_extract("(\n|^)Panel\\s{1,5}\\d{1,6}(.|\\s)+$") %>%
+    str_trim()
+  
+  if(is.na(panel_str)) return(tibble::tibble(p_nr = NA_real_))
+  
+  p_nr <- panel_str %>% 
+    str_extract("\\d+") %>%
+    as.numeric()
+  
+  panel_spl <- panel_str %>% 
+    str_split_1("\n")
+  
+  p_title <- panel_spl[2]
+  
+  p_room <- panel_spl %>% 
+    subset_and_remove("Room")
+  
+  time <- panel_spl %>% 
+    subset_and_remove("Time") %>%
+    .[1] %>%
+    
+    p_day = str_extract(time, "\\b.*?day")
+  p_time = str_remove(time, "^.*?day")
+  
+  p_chair <- panel_spl %>% 
+    subset_and_remove("Chair")
+  
+  p_discussant <- panel_spl %>% 
+    subset_and_remove("Discussant")
+  
+  
+  boundary <- which(str_detect(panel_spl, "Discussant")) + 1
+  
+  # When roundtable there is no discussant
+  if(!length(boundary)){
+    boundary <- which(str_detect(panel_spl, "Round(a?)table Participants")) + 1
+    p_discussant <- NA_character_
+    if(!length(p_chair)) p_chair <- NA_character_
+  }
+  
+  papers <- paste(panel_spl[boundary:length(panel_spl)], collapse = "\n") %>%
+    str_split_1("\n\n") %>%
+    str_subset("^$", negate = T) 
+  
+  tibble::tibble(p_nr, p_title, p_room, p_day, p_time, p_chair, p_discussant, papers = list(papers))
+  
+}
+
+parse_panel_pos <- purrr::possibly(parse_panel, otherwise = tibble::tibble(p_nr = NA_real_))
+
+pdf_pages <- pdftools::pdf_text(pdf = "EPSA-2024-Conference-Program_061524.pdf") 
+
+all_panels <- pdf_pages %>%
+  map_dfr(parse_panel_pos)
+
+
+all_panels %>%
+  filter(!is.na(p_nr)) %>%
+  glimpse %>%
+  unnest(papers) %>%
+  separate(papers, into = c("authors", "title"), sep = "\n", extra = "merge") %>%
+  mutate(across(where(is.character), str_squish)) %>%
+  mutate(
+    section = str_extract(p_nr, "^\\d{2}") %>%
+      recode(
+        "10" = "Political Behavior",
+        "11" = "Political Representation",
+        "12" = "Political Economy",
+        "13" = "Public Policy and Administration",
+        "14" = "Public Opinion and Political Communication",
+        "15" = "Comparative Politics",
+        "16" = "European Politics",
+        "17" = "Formal Political Theory",
+        "18" = "Party Politics",
+        "19" = "Conflict and Security",
+        "20" = "Political Methodology",
+        "21" = "International Relations",
+        "22" = "Political Sociology", 
+        "23" = "Roundtables"
+      ) 
+  ) %>%
+  select(section, everything()) %>%
+  rio::export("~/Downloads/epsa_program.xlsx")
+```
+
+## Data
+
+``` r
+dt <- rio::import("epsa_program.xlsx")
+```
+
+## Number of papers/sections
+
+``` r
+dt %>%
+  count(section) %>%
+  mutate(section = fct_reorder(section, n)) %>%
+  ggplot(aes(x = section, y = n)) +
+  geom_col() +
+  coord_flip() +
+  theme_bw() +
+  labs(x = "", y = "") +
+  ggtitle("EPSA 2024 - Number of papers/section\n")
+```
+
+![](parse_EPSA_2024_files/figure-gfm/unnamed-chunk-4-1.png)<!-- -->
+
+## Number of panels/section
+
+``` r
+dt %>%
+  distinct(section, p_nr, p_title, p_chair, p_discussant) %>%
+  count(section) %>%
+  mutate(section = fct_reorder(section, n)) %>%
+  ggplot(aes(x = section, y = n)) +
+  geom_col() +
+  coord_flip() +
+  theme_bw() +
+  labs(x = "", y = "") +
+  ggtitle("EPSA 2024 - Number of panels/section\n")
+```
+
+![](parse_EPSA_2024_files/figure-gfm/unnamed-chunk-5-1.png)<!-- -->
+
+``` r
+dt %>%
+  distinct(section, p_nr, p_title, p_chair, p_discussant, p_day, p_time) %>%  
+  arrange(section) %>%
+  mutate(track = row_number(), .by = c(p_day, p_time)) %>%
+  mutate(
+    p_day = fct_relevel(p_day, "Thursday", "Friday", "Saturday"),
+    start = lubridate::dmy_hm(glue::glue("03-07-2024 {p_time}")), 
+    end = start + 60*60*2, 
+    mid = start + (start - end)/2, 
+    p_title = str_trunc(p_title, 45)
+  ) %>%
+  ggplot(aes(x = end - 60*60, y = track, fill = section, label = p_title)) +
+  geom_tile(width = 60*60*2) +
+  geom_text() +
+  theme_minimal() +
+  theme(legend.position = "bottom") +
+  labs(x = "", y = "", fill = "") +
+  facet_wrap(~p_day, ncol = 1, scales = "free_y") +
+  theme(plot.background = element_rect(color = "white", fill = "white"),panel.grid = element_blank(), axis.text.y = element_blank()) +
+  viridis::scale_fill_viridis(begin = .3, discrete = T) +
+  scale_x_datetime(date_breaks = "hour", labels = ~str_extract(as.character(.x), "\\d{2}:\\d{2}"))
+```
+
+![](parse_EPSA_2024_files/figure-gfm/unnamed-chunk-6-1.png)<!-- -->
+
+``` r
+  
+
+ggsave(width = 23, height = 20, "program.png")
+```
